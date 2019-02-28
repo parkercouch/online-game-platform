@@ -2,11 +2,16 @@ defmodule Platform.Products.Gameplay do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Platform.Products.Game
+  alias Platform.Accounts.Player
 
   schema "gameplays" do
-    field :player_score, :integer
-    field :game_id, :id
-    field :player_id, :id
+    belongs_to :game, Game
+    belongs_to :player, Player
+
+    field :player_score, :integer, default: 0
+    # field :game_id, :id
+    # field :player_id, :id
 
     timestamps()
   end
