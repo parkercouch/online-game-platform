@@ -4,6 +4,8 @@ import Browser
 import Html exposing (Html, button, div, h1, li, p, strong, text, ul)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
+import Http
+import Json.Decode as Decode
 
 
 
@@ -19,35 +21,38 @@ main =
         }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( initialModel, Cmd.none )
-
-
 
 -- MODEL
 
 
 type alias Model =
     { gamesList : List Game
-    , displayGamesList : Bool
     }
 
 
 type alias Game =
-    { title : String
-    , description : String
+    { description : String
+    , featured : Bool
+    , id : Int
+    , thumbnail : String
+    , title : String
     }
 
 
 initialModel : Model
 initialModel =
-    { gamesList =
-        [ { title = "Platform Game", description = "Platform game example." }
-        , { title = "Adventure Game", description = "Adventure game example." }
-        ]
-    , displayGamesList = True
+    { gamesList = []
     }
+
+
+initialCommand : Cmd Msg
+initialCommand =
+    fetchGamesList
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( initialModel, initialCommand )
 
 
 
@@ -55,18 +60,20 @@ initialModel =
 
 
 type Msg
-    = DisplayGamesList
-    | HideGamesList
+    = FetchGamesList (Result Http.Error (List Game))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        DisplayGamesList ->
-            ( { model | displayGamesList = True }, Cmd.none )
+        FetchGamesList result ->
+            case result of
+                Ok games ->
+                    ( { model | gamesList = games }, Cmd.none )
 
-        HideGamesList ->
-            ( { model | displayGamesList = False }, Cmd.none )
+                Err _ ->
+                    Debug.log "Error fetching games from API."
+                        ( model, Cmd.none )
 
 
 
@@ -86,16 +93,14 @@ view : Model -> Html Msg
 view model =
     let
         maybeGameList =
-            if model.displayGamesList then
-                gamesIndex model.gamesList
+            if List.isEmpty model.gamesList then
+                div [] [ text "Nothing here..." ]
 
             else
-                div [] []
+                gamesIndex model.gamesList
     in
     div []
         [ h1 [ class "games-section" ] [ text "Games" ]
-        , button [ class "button", onClick DisplayGamesList ] [ text "Display Games List" ]
-        , button [ class "button", onClick HideGamesList ] [ text "Hide Games List" ]
         , maybeGameList
         ]
 
@@ -116,3 +121,32 @@ gamesListItem game =
         [ strong [] [ text game.title ]
         , p [] [ text game.description ]
         ]
+
+
+
+-- API
+
+
+fetchGamesList : Cmd Msg
+fetchGamesList =
+    Http.get
+        { url = "/api/games"
+        , expect = Http.expectJson FetchGamesList decodeGamesList
+        }
+
+
+decodeGamesList : Decode.Decoder (List Game)
+decodeGamesList =
+    decodeGame
+        |> Decode.list
+        |> Decode.at [ "data" ]
+
+
+decodeGame : Decode.Decoder Game
+decodeGame =
+    Decode.map5 Game
+        (Decode.field "description" Decode.string)
+        (Decode.field "featured" Decode.bool)
+        (Decode.field "id" Decode.int)
+        (Decode.field "thumbnail" Decode.string)
+        (Decode.field "title" Decode.string)
