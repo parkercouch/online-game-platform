@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Platform · Phoenix Framework</title>
+    <title>Online Game Platform</title>
     <link rel="stylesheet" href="<%= Routes.static_path(@conn, "/css/app.css") %>"/>
   </head>
   <body>
@@ -13,7 +13,13 @@
         <nav role="navigation">
           <ul>
             <%= if @current_user do %>
-              <p>Signed in as <strong><%= @current_user.username %></strong></p>
+              <p class="nav-text">
+                Signed in as&nbsp;
+                <strong>
+                  <%= link @current_user.username,
+                    to: Routes.player_path(@conn, :edit, @current_user) %>
+                </strong>
+              </p>
               <%= link "Sign Out",
                 to: Routes.player_session_path(@conn, :delete, @current_user),
                 method: "delete",
@@ -25,12 +31,10 @@
             <% end %>
           </ul>
         </nav>
-        <a href="http://phoenixframework.org/" class="phx-logo">
-          <img src="<%= Routes.static_path(@conn, "/images/phoenix.png") %>" alt="Phoenix Framework Logo"/>
-        </a>
+        <h1><%= link "🐘 Siam ⛰ Online 🦏", to: Routes.page_path(@conn, :index), class: "logo" %></h1>
       </section>
     </header>
-    <main role="main" class="container">
+    <main role="main">
       <p class="alert alert-info" role="alert"><%= get_flash(@conn, :info) %></p>
       <p class="alert alert-danger" role="alert"><%= get_flash(@conn, :error) %></p>
       <%= render @view_module, @view_template, assigns %>
