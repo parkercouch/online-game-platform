@@ -41,7 +41,8 @@ module.exports = (env, options) => ({
             cwd: path.resolve(__dirname, 'elm'),
             files: [
               path.resolve(__dirname, 'elm/src/Main.elm'),
-              path.resolve(__dirname, 'elm/src/Games/Platformer.elm')
+              path.resolve(__dirname, 'elm/src/Games/Platformer.elm'),
+              path.resolve(__dirname, 'elm/src/Games/Siam.elm')
             ]
           }
         }

@@ -60,3 +60,11 @@ header {
 .player-name {
   margin-left: 1em;
 }
+
+.w_s {
+  width: 3.16rem;
+}
+
+.h_s {
+  height: 3.16rem;
+}

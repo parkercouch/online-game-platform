@@ -1,8 +1,8 @@
-module Games.Platformer exposing (main)
+module Games.JustSmashBricks exposing (main)
 
 import Html exposing (Html, text)
 
 
 main : Html msg
 main =
-    text "Platformer Game"
+    text "Just Smash Bricks!"
