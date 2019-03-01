@@ -2,6 +2,7 @@
 // The MiniCssExtractPlugin is used to separate it out into
 // its own CSS file.
 import css from "../css/app.css";
+import tachyons from "../css/tachyons.min.css";
 
 // webpack automatically bundles all modules in your
 // entry points. Those entry points can be configured
@@ -19,13 +20,18 @@ import "phoenix_html";
 // Elm
 import { Elm } from "../elm/src/Main.elm";
 
-const elmContainer = document.querySelector("#elm-container");
-const platformer = document.querySelector("#platformer");
+const elmContainer = document.getElementById("elm-container");
+const justSmashBricks = document.getElementById("just-smash-bricks");
+const siam = document.getElementById("siam");
 
 if (elmContainer) {
   Elm.Main.init({ node: elmContainer });
 }
 
-if (platformer) {
-  Elm.Games.Platformer.init({ node: platformer });
+if (justSmashBricks) {
+  Elm.Games.JustSmashBricks.init({ node: justSmashBricks });
+}
+
+if (siam) {
+  Elm.Games.Siam.init({ node: siam });
 }
