@@ -22,6 +22,7 @@ import { Elm } from "../elm/src/Main.elm";
 
 const elmContainer = document.getElementById("elm-container");
 const justSmashBricks = document.getElementById("just-smash-bricks");
+const platformer = document.getElementById("platformer")
 const siam = document.getElementById("siam");
 
 if (elmContainer) {
@@ -34,4 +35,8 @@ if (justSmashBricks) {
 
 if (siam) {
   Elm.Games.Siam.init({ node: siam });
+}
+
+if (platformer) {
+  Elm.Games.Platformer.init({ node: platformer });
 }
