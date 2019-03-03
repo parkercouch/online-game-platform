@@ -3,6 +3,8 @@ defmodule PlatformWeb.UserSocket do
 
   ## Channels
   # channel "room:*", PlatformWeb.RoomChannel
+  channel "score:*", PlatformWeb.ScoreChannel
+  channel "siam:*", PlatformWeb.SiamChannel
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After

@@ -17,6 +17,13 @@ import "phoenix_html";
 // Local files can be imported directly using relative paths, for example:
 // import socket from "./socket"
 
+// Putting sockets here to test for now, then will move to sockets.js
+import { Socket } from "phoenix";
+
+const socket = new Socket("/socket", {});
+
+socket.connect();
+
 // Elm
 import { Elm } from "../elm/src/Main.elm";
 
@@ -34,9 +41,50 @@ if (justSmashBricks) {
 }
 
 if (siam) {
-  Elm.Games.Siam.init({ node: siam });
+  // Elm.Games.Siam.init({ node: siam });
+  const app = Elm.Games.Siam.init({ node: siam });
+
+  const channel = socket.channel("siam:game", {});
+
+  channel.join()
+    .receive("ok", resp => { console.log("Joined Siam successfully", resp) })
+    .receive("error", resp => { console.log("Unable to join", resp) })
+
+  channel.on("get_state", payload => {
+    console.log(`Receiving ${payload.player} from Phoenix using the receiveState port.`);
+    app.ports.receiveState.send({
+      turn: payload.player,
+    })
+  });
+
+  app.ports.requestState.subscribe(function () {
+    console.log(`Requesting state.`);
+    // Push to Phoenix channel
+
+    channel.push("request_state", {});
+  });
 }
 
 if (platformer) {
-  Elm.Games.Platformer.init({ node: platformer });
+  const app = Elm.Games.Platformer.init({ node: platformer });
+
+  const channel = socket.channel("score:platformer", {});
+
+  channel.join()
+    .receive("ok", resp => { console.log("Joined successfully", resp) })
+    .receive("error", resp => { console.log("Unable to join", resp) })
+
+  channel.on("broadcast_score_to_all", payload => {
+    console.log(`Receiving ${payload.player_score} score data from Phoenix using the receivingScoreFromPhoenix port.`);
+    app.ports.receiveScoreFromPhoenix.send({
+      player_score: payload.player_score,
+    })
+  });
+
+  app.ports.broadcastScore.subscribe(function (scoreData) {
+    console.log(`Broadcasting ${scoreData} score data from Elm using the broadcastScore port.`);
+    // Push to Phoenix channel
+
+    channel.push("broadcast_score", { player_score: scoreData });
+  });
 }

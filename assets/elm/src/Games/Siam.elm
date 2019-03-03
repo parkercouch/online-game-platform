@@ -1,9 +1,13 @@
-module Games.Siam exposing (Board, Bullpen, Coord, Direction(..), Model, Msg(..), Piece(..), Player(..), boardSize, coordToIndex, indexToCoord, init, main, update, view)
+port module Games.Siam exposing (Board, Bullpen, Coord, Direction(..), Model, Msg(..), Piece(..), Player(..), boardSize, coordToIndex, indexToCoord, init, main, update, view)
 
 import Browser
-import Html exposing (Html, div, h1, h2, img, text)
+import Browser.Events
+import Html exposing (Html, button, div, h1, h2, img, p, text)
 import Html.Attributes exposing (classList, src)
 import Html.Events exposing (onClick)
+import Http
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Tachyons exposing (classes)
 import Tachyons.Classes as T
 
@@ -19,6 +23,12 @@ type alias Model =
     , board : Board
     , winner : Maybe Player
     , clicked : Int
+    , stateTest : State
+    }
+
+
+type alias State =
+    { turn : String
     }
 
 
@@ -85,6 +95,7 @@ init =
       , board = startingBoard
       , winner = Nothing
       , clicked = -1
+      , stateTest = { turn = "None" }
       }
     , Cmd.none
     )
@@ -121,12 +132,35 @@ startingBoard =
 
 
 
+---- PORTS ----
+
+
+port requestState : String -> Cmd msg
+
+
+port receiveState : (Encode.Value -> msg) -> Sub msg
+
+
+
+---- SUBSCRIPTIONS ----
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.batch
+        [ receiveState ReceiveState
+        ]
+
+
+
 ---- UPDATE ----
 
 
 type Msg
     = NoOp
     | Click Int
+    | ReceiveState Encode.Value
+    | RequestState
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -137,6 +171,19 @@ update msg model =
 
         Click index ->
             ( { model | selected = Just index }, Cmd.none )
+
+        RequestState ->
+            ( model, requestState "requesting state" )
+
+        ReceiveState incomingJsonData ->
+            case Decode.decodeValue decodeState incomingJsonData of
+                Ok turn ->
+                    Debug.log "Successfully received state data."
+                        ( { model | stateTest = turn }, Cmd.none )
+
+                Err message ->
+                    Debug.log ("Error receiving state data: " ++ Debug.toString message)
+                        ( model, Cmd.none )
 
 
 
@@ -149,6 +196,9 @@ view model =
         [ h1 [ classes [ T.red ] ] [ text "Siam" ]
         , viewBoard model
         , h2 [] [ text (String.fromInt model.clicked) ]
+        , button [ onClick RequestState ] [ text "Get State" ]
+        , h2 [] [ text "Current Player:" ]
+        , p [] [ text model.stateTest.turn ]
         ]
 
 
@@ -241,5 +291,11 @@ main =
         { view = view
         , init = \_ -> init
         , update = update
-        , subscriptions = always Sub.none
+        , subscriptions = subscriptions
         }
+
+
+decodeState : Decode.Decoder State
+decodeState =
+    Decode.map State
+        (Decode.field "turn" Decode.string)

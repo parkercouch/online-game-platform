@@ -7,11 +7,15 @@ defmodule Game.Server do
   alias Game.Logic, as: Logic
   alias Game.Board, as: Board
 
+  def start_link do
+    GenServer.start_link(__MODULE__, %{}, name: :siam)
+  end
+
   @doc """
   Start Game Server Process
   """
   def start do
-    GenServer.start(Game.Server, nil)
+    GenServer.start(Game.Server, nil, name: :siam)
   end
 
   @doc """
@@ -22,15 +26,17 @@ defmodule Game.Server do
 
   Returns {:ok, new_state} or {:error, message}
   """
-  def move(pid, move_data) do
-    GenServer.call(pid, {:move, move_data})
+  def move(move_data) do
+  # def move(pid, move_data) do
+    GenServer.call(:siam, {:move, move_data})
   end
 
   @doc """
   Reset actions on current turn
   """
-  def undo_move(pid) do
-    GenServer.call(pid, {:undo_move})
+  def undo_move() do
+  # def undo_move(pid) do
+    GenServer.call(:siam, {:undo_move})
   end
 
   @doc """
@@ -42,22 +48,25 @@ defmodule Game.Server do
 
   Error is returned on first turn
   """
-  def undo_turn(pid) do
-    GenServer.call(pid, {:undo_turn})
+  def undo_turn() do
+  # def undo_turn(pid) do
+    GenServer.call(:siam, {:undo_turn})
   end
 
   @doc """
   Get current turn data
   """
-  def get_turn(pid) do
-    GenServer.call(pid, {:get_turn})
+  def get_turn() do
+  # def get_turn(pid) do
+    GenServer.call(:siam, {:get_turn})
   end
 
   @doc """
   Get entire game state (and history)
   """
-  def get_state(pid) do
-    GenServer.call(pid, {:get_state})
+  def get_state() do
+  # def get_state(pid) do
+    GenServer.call(:siam, {:get_state})
   end
 
   def init(_) do
