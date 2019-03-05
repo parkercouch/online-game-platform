@@ -2,7 +2,7 @@ port module Games.Platformer exposing (main)
 
 import Browser
 import Browser.Events
-import Html exposing (Html, a, button, div, h1, h2, h3, img, li, p, strong, text, ul)
+import Html exposing (Html, a, button, div, h1, h2, h3, img, li, p, span, strong, text, ul)
 import Html.Attributes exposing (class, href, src)
 import Html.Events exposing (onClick)
 import Http
@@ -28,7 +28,9 @@ main =
 
 
 type alias Gameplay =
-    { playerScore : Int
+    { gameId : Int
+    , playerId : Int
+    , playerScore : Int
     }
 
 
@@ -44,6 +46,18 @@ type GameState
     | GameOver
 
 
+type alias Flags =
+    { token : String
+    }
+
+
+type alias Player =
+    { displayName : Maybe String
+    , id : Int
+    , username : String
+    }
+
+
 type alias Model =
     { characterDirection : Direction
     , characterPositionX : Int
@@ -52,14 +66,16 @@ type alias Model =
     , itemPositionX : Int
     , itemPositionY : Int
     , itemsCollected : Int
+    , players : List Player
     , playerScore : Int
+    , playerToken : String
     , timeRemaining : Int
     , gameplays : List Gameplay
     }
 
 
-initialModel : Model
-initialModel =
+initialModel : Flags -> Model
+initialModel flags =
     { characterDirection = Right
     , characterPositionX = 50
     , characterPositionY = 300
@@ -67,15 +83,45 @@ initialModel =
     , itemPositionX = 500
     , itemPositionY = 300
     , itemsCollected = 0
+    , players = []
     , playerScore = 0
+    , playerToken = flags.token
     , timeRemaining = 10
     , gameplays = []
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( initialModel, Cmd.none )
+initialCommand : Cmd Msg
+initialCommand =
+    Cmd.batch
+        [ fetchGameplaysList
+        , fetchPlayersList
+        ]
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    ( initialModel flags, initialCommand )
+
+
+
+-- API
+
+
+fetchGameplaysList : Cmd Msg
+fetchGameplaysList =
+    Http.get
+        { url = "/api/gameplays"
+        , expect = Http.expectJson FetchGameplaysList decodeGameplaysList
+        }
+
+
+fetchPlayersList : Cmd Msg
+fetchPlayersList =
+    Http.get
+        { url = "/api/players"
+        , expect = Http.expectJson FetchPlayersList decodePlayersList
+        }
 
 
 
@@ -85,10 +131,12 @@ init _ =
 type Msg
     = BroadcastScore Encode.Value
     | CountdownTimer Time.Posix
+    | FetchGameplaysList (Result Http.Error (List Gameplay))
+    | FetchPlayersList (Result Http.Error (List Player))
     | GameLoop Float
-    | IncrementScore Int
     | KeyDown String
     | ReceiveScoreFromPhoenix Encode.Value
+    | SaveScore Encode.Value
     | SetNewItemPositionX Int
     | NoOp
 
@@ -109,6 +157,24 @@ update msg model =
             else
                 ( model, Cmd.none )
 
+        FetchGameplaysList result ->
+            case result of
+                Ok fetchedGameplays ->
+                    ( { model | gameplays = fetchedGameplays }, Cmd.none )
+
+                Err _ ->
+                    Debug.log "Error fetching gameplays from API."
+                        ( model, Cmd.none )
+
+        FetchPlayersList result ->
+            case result of
+                Ok fetchedPlayers ->
+                    ( { model | players = fetchedPlayers }, Cmd.none )
+
+                Err _ ->
+                    Debug.log "Error fetching players from API."
+                        ( model, Cmd.none )
+
         GameLoop time ->
             if characterFoundItem model then
                 ( { model
@@ -126,9 +192,6 @@ update msg model =
 
             else
                 ( model, Cmd.none )
-
-        IncrementScore value ->
-            ( { model | playerScore = model.playerScore + value }, Cmd.none )
 
         KeyDown key ->
             case key of
@@ -185,6 +248,9 @@ update msg model =
                     Debug.log ("Error receiving score data: " ++ Debug.toString message)
                         ( model, Cmd.none )
 
+        SaveScore value ->
+            ( model, saveScore value )
+
         SetNewItemPositionX newPositionX ->
             ( { model | itemPositionX = newPositionX }, Cmd.none )
 
@@ -214,6 +280,9 @@ port broadcastScore : Encode.Value -> Cmd msg
 port receiveScoreFromPhoenix : (Encode.Value -> msg) -> Sub msg
 
 
+port saveScore : Encode.Value -> Cmd msg
+
+
 
 -- SUBSCRIPTIONS
 
@@ -236,9 +305,8 @@ view : Model -> Html Msg
 view model =
     div [ Html.Attributes.class "container" ]
         [ viewGame model
-        , p [] [ Html.text (String.fromInt model.playerScore) ]
-        , button [ onClick (IncrementScore 5) ] [ Html.text "+5" ]
         , viewBroadcastScoreButton model
+        , viewSaveScoreButton model
         , viewGameplaysIndex model
         ]
 
@@ -459,6 +527,26 @@ viewBroadcastScoreButton model =
         [ Html.text "Broadcast Score Over Socket" ]
 
 
+viewSaveScoreButton : Model -> Html Msg
+viewSaveScoreButton model =
+    let
+        saveEvent =
+            model.playerScore
+                |> Encode.int
+                |> SaveScore
+                |> Html.Events.onClick
+    in
+    if model.playerToken == "" then
+        div [] []
+
+    else
+        button
+            [ saveEvent
+            , Html.Attributes.class "button"
+            ]
+            [ Html.text "Save Score to Database" ]
+
+
 viewGameplaysIndex : Model -> Html Msg
 viewGameplaysIndex model =
     if List.isEmpty model.gameplays then
@@ -467,30 +555,81 @@ viewGameplaysIndex model =
     else
         div [ Html.Attributes.class "gameplays-index container" ]
             [ h2 [] [ Html.text "Player Scores" ]
-            , viewGameplaysList model.gameplays
+            , viewGameplaysList model
             ]
 
 
-viewGameplaysList : List Gameplay -> Html Msg
-viewGameplaysList gameplays =
+viewGameplaysList : Model -> Html Msg
+viewGameplaysList model =
     ul [ Html.Attributes.class "gameplays-list" ]
-        (List.map viewGameplayItem gameplays)
+        (List.map (viewGameplayItem model) model.gameplays)
 
 
-viewGameplayItem : Gameplay -> Html Msg
-viewGameplayItem gameplay =
+viewGameplayItem : Model -> Gameplay -> Html Msg
+viewGameplayItem model gameplay =
+    let
+        displayPlayer =
+            findPlayerWithGameplay model gameplay
+                |> viewPlayerName
+
+        displayScore =
+            String.fromInt gameplay.playerScore
+    in
     li [ Html.Attributes.class "gameplay-item" ]
-        [ Html.text ("Player Score: " ++ String.fromInt gameplay.playerScore) ]
+        [ strong [] [ Html.text (displayPlayer ++ ": ") ]
+        , span [] [ Html.text displayScore ]
+        ]
+
+
+findPlayerWithGameplay : Model -> Gameplay -> Maybe Player
+findPlayerWithGameplay model gameplay =
+    model.players
+        |> List.filter (\player -> player.id == gameplay.playerId)
+        |> List.head
+
+
+viewPlayerName : Maybe Player -> String
+viewPlayerName maybePlayer =
+    case maybePlayer of
+        Just player ->
+            Maybe.withDefault player.username player.displayName
+
+        Nothing ->
+            "Anonymous Player"
 
 
 
 ---- DECODERS ----
 
 
+decodeGameplaysList : Decode.Decoder (List Gameplay)
+decodeGameplaysList =
+    decodeGameplay
+        |> Decode.list
+        |> Decode.at [ "data" ]
+
+
 decodeGameplay : Decode.Decoder Gameplay
 decodeGameplay =
-    Decode.map Gameplay
+    Decode.map3 Gameplay
+        (Decode.field "game_id" Decode.int)
+        (Decode.field "player_id" Decode.int)
         (Decode.field "player_score" Decode.int)
+
+
+decodePlayersList : Decode.Decoder (List Player)
+decodePlayersList =
+    decodePlayer
+        |> Decode.list
+        |> Decode.at [ "data" ]
+
+
+decodePlayer : Decode.Decoder Player
+decodePlayer =
+    Decode.map3 Player
+        (Decode.maybe (Decode.field "display_name" Decode.string))
+        (Decode.field "id" Decode.int)
+        (Decode.field "username" Decode.string)
 
 
 keyDecoder : Decode.Decoder String

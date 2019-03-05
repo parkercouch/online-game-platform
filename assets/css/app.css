@@ -68,3 +68,7 @@ header {
 .h_s {
   height: 3.16rem;
 }
+
+.button {
+  margin-right: 1em;
+}

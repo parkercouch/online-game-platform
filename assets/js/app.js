@@ -20,7 +20,10 @@ import "phoenix_html";
 // Putting sockets here to test for now, then will move to sockets.js
 import { Socket } from "phoenix";
 
-const socket = new Socket("/socket", {});
+const socketParams = (window.userToken == "") ? {} : { token: window.userToken };
+const socket = new Socket("/socket", {
+  params: socketParams,
+});
 
 socket.connect();
 
@@ -66,7 +69,10 @@ if (siam) {
 }
 
 if (platformer) {
-  const app = Elm.Games.Platformer.init({ node: platformer });
+  const app = Elm.Games.Platformer.init({
+    node: platformer,
+    flags: { token: window.userToken }
+  });
 
   const channel = socket.channel("score:platformer", {});
 
@@ -74,17 +80,23 @@ if (platformer) {
     .receive("ok", resp => { console.log("Joined successfully", resp) })
     .receive("error", resp => { console.log("Unable to join", resp) })
 
-  channel.on("broadcast_score_to_all", payload => {
+  channel.on("broadcast_score", payload => {
     console.log(`Receiving ${payload.player_score} score data from Phoenix using the receivingScoreFromPhoenix port.`);
     app.ports.receiveScoreFromPhoenix.send({
-      player_score: payload.player_score,
-    })
+      game_id: payload.game_id || 0,
+      player_id: payload.player_id || 0,
+      player_score: payload.player_score || 0,
+    });
   });
 
   app.ports.broadcastScore.subscribe(function (scoreData) {
     console.log(`Broadcasting ${scoreData} score data from Elm using the broadcastScore port.`);
     // Push to Phoenix channel
-
     channel.push("broadcast_score", { player_score: scoreData });
   });
+
+  app.ports.saveScore.subscribe(function (scoreData) {
+    console.log(`Saving ${scoreData} score data from Elm using the saveScore port`);
+    channel.push("save_score", { player_score: scoreData });
+  })
 }
