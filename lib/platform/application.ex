@@ -8,6 +8,10 @@ defmodule Platform.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
+      ## TODO: Need to start the game server per game not here... but this is to test
+      # worker(Game.Server, nil, restart: :temporary),
+      # Platform.Worker.start_link(Game.Server),
+      # {Platform.Worker, Game.Server},
       # Start the Ecto repository
       Platform.Repo,
       # Start the endpoint when the application starts
