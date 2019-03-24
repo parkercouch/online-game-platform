@@ -62,6 +62,10 @@ type alias Model =
     { characterDirection : Direction
     , characterPositionX : Int
     , characterPositionY : Int
+    , characterDX : Int
+    , characterDY : Int
+    , characterDDX : Int
+    , characterDDY : Int
     , gameState : GameState
     , itemPositionX : Int
     , itemPositionY : Int
@@ -79,6 +83,10 @@ initialModel flags =
     { characterDirection = Right
     , characterPositionX = 50
     , characterPositionY = 300
+    , characterDX = 0
+    , characterDY = 0
+    , characterDDX = 0
+    , characterDDY = 0
     , gameState = StartScreen
     , itemPositionX = 500
     , itemPositionY = 300
@@ -135,9 +143,11 @@ type Msg
     | FetchPlayersList (Result Http.Error (List Player))
     | GameLoop Float
     | KeyDown String
+    | KeyUp String
     | ReceiveScoreFromPhoenix Encode.Value
     | SaveScore Encode.Value
     | SetNewItemPositionX Int
+    | Update
     | NoOp
 
 
@@ -176,8 +186,12 @@ update msg model =
                         ( model, Cmd.none )
 
         GameLoop time ->
+            let
+                modelUpdated =
+                    { model | characterPositionX = model.characterPositionX + model.characterDX }
+            in
             if characterFoundItem model then
-                ( { model
+                ( { modelUpdated
                     | itemsCollected = model.itemsCollected + 1
                     , playerScore = model.playerScore + 100
                   }
@@ -191,7 +205,19 @@ update msg model =
                 ( { model | gameState = GameOver }, Cmd.none )
 
             else
-                ( model, Cmd.none )
+                ( modelUpdated, Cmd.none )
+
+        Update ->
+            ( { model
+                | characterPositionX = model.characterPositionX + model.characterDX
+              }
+            , Cmd.none
+            )
+
+        KeyUp key ->
+            case key of
+                _ ->
+                    ( { model | characterDX = 0 }, Cmd.none )
 
         KeyDown key ->
             case key of
@@ -199,7 +225,9 @@ update msg model =
                     if model.gameState == Playing then
                         ( { model
                             | characterDirection = Left
-                            , characterPositionX = model.characterPositionX - 15
+
+                            -- , characterPositionX = model.characterPositionX - 15
+                            , characterDX = -5
                           }
                         , Cmd.none
                         )
@@ -211,7 +239,9 @@ update msg model =
                     if model.gameState == Playing then
                         ( { model
                             | characterDirection = Right
-                            , characterPositionX = model.characterPositionX + 15
+
+                            -- , characterPositionX = model.characterPositionX + 15
+                            , characterDX = 5
                           }
                         , Cmd.none
                         )
@@ -291,9 +321,11 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Browser.Events.onKeyDown (Decode.map KeyDown keyDecoder)
+        , Browser.Events.onKeyUp (Decode.map KeyUp keyDecoder)
         , Browser.Events.onAnimationFrameDelta GameLoop
         , receiveScoreFromPhoenix ReceiveScoreFromPhoenix
-        , Time.every 1000 CountdownTimer
+
+        -- , Time.every 1000 CountdownTimer
         ]
 
 
